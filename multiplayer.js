@@ -38,7 +38,7 @@ export class ArenaRoom{
     peer.on('error',error=>{if(this.peer!==peer)return;this.notify(error.type==='peer-unavailable'?'Room not found. Ask the host for a fresh QR code.':'Could not connect. Check your internet connection or try another network.');});
     peer.on('disconnected',()=>{if(this.peer===peer)this.notify('Room service disconnected. Existing players may continue; reconnect to accept new players.');});
     peer.on('connection',link=>{
-      if(!this.host||this.links.size>=MAX_PLAYERS-1||this.phase!=='lobby'){
+      if(!this.host||this.links.size>=MAX_PLAYERS-1||!['lobby','finished'].includes(this.phase)){
         link.on('open',()=>{this.send(link,{type:'rejected',message:this.phase==='playing'?'Round already started. Join after it finishes.':'Room full. Maximum four players.'});setTimeout(()=>link.close(),300);});return;
       }
       this.attach(link);
@@ -71,7 +71,7 @@ export class ArenaRoom{
     if(this.host){
       if(data.type!=='hello'&&data.type!=='update')return;
       const racer=cleanRacer(data.racer);if(!racer)return;
-      if(data.type==='hello'&&this.phase!=='lobby')return;
+      if(data.type==='hello'&&!['lobby','finished'].includes(this.phase))return;
       if(data.type==='update'&&!this.racers.has(link.peer))return;
       this.racers.set(link.peer,racer);this.broadcast(this.snapshot());
       if(data.type==='hello')this.notify('A racer joined. Start when everyone is ready.');

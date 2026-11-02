@@ -34,6 +34,7 @@ test('host and QR joiner exchange racers, start one seeded round and finish toge
     host.receive(host.links.get(guest.self),{type:'start',round:99,seed:1,venue:'road'});assert.equal(host.phase,'lobby');
     assert.equal(host.start('road'),true);await settle();assert.equal(host.phase,'playing');assert.equal(guest.phase,'playing');assert.equal(hostStart.seed,guestStart.seed);assert.equal(guestStart.venue,'road');
     now+=184000;host.update(racer(8));await settle();assert.equal(host.phase,'finished');assert.equal(guest.phase,'finished');assert.equal(finished,2);
+    const late=new ArenaRoom({PeerClass:FakePeer,now:()=>now});late.local=cleanRacer(racer());await late.open(host.id);await settle();assert.equal(late.phase,'lobby');assert.equal(host.racers.size,3);late.leave();await settle();
     assert.equal(host.start('ice'),true);await settle();assert.equal(guest.round,2);
     host.leave();await settle();assert.equal(guest.active,false);assert.equal(left,1);
   }finally{guest.leave();host.leave();}
