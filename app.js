@@ -1,3 +1,4 @@
+import { createMultiplayer } from './multiplayer-ui.js';
 import './styles.css';
 import { ArenaGame } from './game.js';
 import { ArenaWorld } from './world.js';
@@ -10,13 +11,13 @@ loader.setProgress(25, 'ASSEMBLING YOUR MACHINE');
 
 const game = new ArenaGame();
 const audio = new ArenaAudio();
-let world;
+let world, multiplayer;
 const ui = createUI({
-  onPlay: () => { if(loader.isOpen())return; clearKeys(); audio.setEnabled(ui.getSettings().sound); game.start(); },
+  onPlay: () => { if(loader.isOpen()||(multiplayer&&!multiplayer.requestPlay()))return; clearKeys(); audio.setEnabled(ui.getSettings().sound); game.start(); },
   onPause: () => { clearKeys(); game.pause(); },
   onResume: () => { clearKeys(); audio.setEnabled(ui.getSettings().sound); game.resume(); },
-  onGarage: () => { clearKeys(); game.garage(); },
-  onRestart: () => { clearKeys(); audio.setEnabled(ui.getSettings().sound); game.restart(); },
+  onGarage: () => { clearKeys(); if(multiplayer?.room.active){multiplayer.show();return;}game.garage(); },
+  onRestart: () => { if(multiplayer?.room.active){multiplayer.show();return;}clearKeys(); audio.setEnabled(ui.getSettings().sound); game.restart(); },
   onSettingsChange: settings => { game.setLevel(settings.level); game.setPlayground(settings.playground); world?.applySettings(settings); audio.setEnabled(settings.sound); },
   onLevelChange: id => game.setLevel(id),
   onCustomize: profile => { world?.customize(profile); game.setVehicle(profile.car); },
@@ -32,10 +33,16 @@ loader.setProgress(60, 'BUILDING THE PLAYGROUND');
 try { world = new ArenaWorld(document.getElementById('game-canvas'), ui.getSettings(), ui.getProfile()); }
 catch (error) { console.error(error); loader.fail('The 3D renderer could not start. Enable hardware acceleration and reload.'); }
 
+multiplayer=createMultiplayer({game,ui,
+  onStart:({seed,venue,slot,count})=>{clearKeys();ui.setSettings({...ui.getSettings(),level:0,playground:venue});game.setLevel(0);game.setPlayground(venue);game.start({seed});game.state.player.x=(slot-(count-1)/2)*4;audio.setEnabled(ui.getSettings().sound);},
+  onFinish:()=>{if(game.state.mode!=='over')game.endRound();},
+  onLeave:()=>{clearKeys();game.garage();},
+});
+
 const keys = new Set();
 const pulses = new Set();
 function clearKeys() { keys.clear(); pulses.clear(); }
-function panelOpen() { return !!document.getElementById('game-panel')?.open; }
+function panelOpen() { return !!document.getElementById('game-panel')?.open||!!document.querySelector('.multiplayer-dialog[open]'); }
 function editing() { return /INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName); }
 function toggleCamera() { const settings = ui.getSettings(); ui.setSettings({...settings,camera:settings.camera==='chase'?'overhead':'chase'});ui.toast({type:'camera',text:settings.camera==='chase'?'OVERHEAD CAMERA':'CHASE CAMERA'}); }
 window.addEventListener('keydown', e => {
@@ -50,7 +57,7 @@ window.addEventListener('keydown', e => {
     else if(game.state.mode==='paused')game.resume();
     clearKeys();
   }
-  if(code==='KeyR'&&['playing','paused','over'].includes(game.state.mode)){game.restart();clearKeys();}
+  if(code==='KeyR'&&['playing','paused','over'].includes(game.state.mode)){if(multiplayer.room.active)multiplayer.show();else game.restart();clearKeys();}
   if(code==='KeyC')toggleCamera();
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
@@ -77,7 +84,7 @@ function readInput() {
     if(Math.abs(throttle)>Math.abs(input.throttle))input.throttle=throttle;
     input.jump||=pad.buttons[0]?.pressed;input.rocket||=pad.buttons[2]?.pressed;input.bomb||=pad.buttons[1]?.pressed;input.boost||=pad.buttons[5]?.pressed;
     const pause=pad.buttons[9]?.pressed;
-    if(pause&&!gamepadPause){if(game.state.mode==='garage')game.start();else if(game.state.mode==='paused')game.resume();else game.pause();}
+    if(pause&&!gamepadPause){if(game.state.mode==='garage'){if(multiplayer.requestPlay())game.start();}else if(game.state.mode==='paused')game.resume();else game.pause();}
     gamepadPause=pause;
   }
   return input;
@@ -87,7 +94,7 @@ let last=performance.now(),frameTime=0,renderElapsed=0;
 function frame(now) {
   requestAnimationFrame(frame);
   const elapsed=Math.min(.1,(now-last)/1000);last=now;
-  const input=readInput();game.update(elapsed,input);pulses.clear();
+  const input=readInput();game.update(elapsed,input);multiplayer.tick();pulses.clear();
   for(const event of game.drainEvents()){world?.event(event);audio.event(event);ui.toast(event);}
   ui.update(game.state,elapsed);audio.update(game.state);
   frameTime+=elapsed;renderElapsed+=elapsed;const cap=Number(ui.getSettings().fps)||60;
@@ -95,4 +102,4 @@ function frame(now) {
   if(frameTime+0.000001>=interval){world?.update(game.state,Math.min(renderElapsed,.1),input);frameTime=Math.max(0,frameTime-interval)%interval;renderElapsed=0;}
 }
 requestAnimationFrame(frame);
-if (world) requestAnimationFrame(() => { loader.setProgress(95, 'CHECKING THE ENGINE'); requestAnimationFrame(() => loader.finish().then(() => { document.getElementById('app').inert = false; clearKeys(); })); });
+if (world) requestAnimationFrame(() => { loader.setProgress(95, 'CHECKING THE ENGINE'); requestAnimationFrame(() => loader.finish().then(() => { document.getElementById('app').inert = false; clearKeys();multiplayer.ready(); })); });

@@ -33,7 +33,7 @@ function makeLabel(text, color = '#d3fa5b', bg = '#1b211d') {
 
 export class ArenaWorld {
   constructor(canvas, settings, profile) {
-    this.settings = settings; this.profile = profile; this.time = 0; this.mode = 'garage'; this.shake = 0;
+    this.remoteModels=new Map();this.settings = settings; this.profile = profile; this.time = 0; this.mode = 'garage'; this.shake = 0;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
     this.renderer.setClearColor('#080d17'); this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.16;
@@ -282,7 +282,7 @@ export class ArenaWorld {
     const view=resolveStageView(this.settings,state.stage,garage);
     this.garageGroup.visible=garage;
     if(this.mode!==state.mode){
-      if(state.mode==='countdown') {this.cameraPosition.set(p.x+11,12,p.z-14);this.trailMesh.count=0;this.trailCursor=0;this.clearShockwaves();}
+      if(state.mode==='countdown') {for(const models of [this.objectModels,this.rivalModels,this.pickupModels,this.projectileModels]){for(const model of models.values()){this.scene.remove(model);this.disposeModel(model);}models.clear();}this.cameraPosition.set(p.x+11,12,p.z-14);this.trailMesh.count=0;this.trailCursor=0;this.clearShockwaves();}
       if(garage){this.clearShockwaves();this.particles.length=0;this.shake=0;this.trailMesh.count=0;}
       this.clearSmoke();
       this.mode=state.mode;
@@ -331,6 +331,15 @@ export class ArenaWorld {
       }
       if(state.mode==='playing'&&this.profile.magic&&!reduced&&Math.random()<.4){this.particles.push({x:p.x-fx*2,y:1.2,z:p.z-fz*2,vx:(Math.random()-.5)*2,vy:1+Math.random(),vz:(Math.random()-.5)*2,life:.7,max:.7,color:'#d6a8ff'});}
     }
+    this.syncModels(garage?[]:(state.peers||[]),this.remoteModels,racer=>{
+      const model=createVehicle({car:racer.car,color:racer.color});model.userData.isKart=true;
+      const label=new THREE.Sprite(new THREE.SpriteMaterial({map:makeLabel(racer.name,'#fff9ee','#111725'),depthTest:false}));label.position.y=4.7;label.scale.set(3.2,1.6,1);model.add(label);return model;
+    },(model,racer)=>{
+      const previous=model.userData.remote||racer.player;
+      const blend=1-Math.exp(-dt*14),p=racer.player;
+      const smooth={...p,x:THREE.MathUtils.lerp(previous.x,p.x,blend),z:THREE.MathUtils.lerp(previous.z,p.z,blend),y:THREE.MathUtils.lerp(previous.y,p.y,blend)};
+      model.userData.remote=smooth;animateVehicle(model,smooth,t,dt,0,reduced);
+    });
     const night=view.night;
     const environment=PLAYGROUNDS[venue]||PLAYGROUNDS.yard;
     const themeColors={electric:'#b99aff',sunset:'#ffaf76',arctic:'#a9edff'};

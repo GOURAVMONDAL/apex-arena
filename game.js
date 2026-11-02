@@ -1,14 +1,11 @@
+import { VEHICLE_ROSTER } from './roster.js';
 // The simulation is independent of the renderer and runs in fixed, small steps.
 // Coordinates are metres; a heading of zero points along the positive Z axis.
 import { getLevel } from './levels.js';
 import { PLAYGROUNDS } from './playgrounds.js';
 const TAU = Math.PI * 2;
 const STAGE_SCORES = [0, 50, 100, 200, 500];
-const VEHICLES = [
-  { name: 'Viper', speed: 28, boost: 44, acceleration: 31, turn: 1.9, damage: 1 },
-  { name: 'Bruiser', speed: 25, boost: 40, acceleration: 27, turn: 1.65, damage: 0.65 },
-  { name: 'Phantom', speed: 31, boost: 47, acceleration: 34, turn: 2.1, damage: 1.18 },
-];
+const VEHICLES = VEHICLE_ROSTER;
 const clamp = (v, low, high) => Math.max(low, Math.min(high, v));
 const distance2 = (a, b) => (a.x - b.x) ** 2 + (a.z - b.z) ** 2;
 const wrapAngle = a => ((a + Math.PI) % TAU + TAU) % TAU - Math.PI;
@@ -64,11 +61,13 @@ export class ArenaGame {
     this._pickup('rocket', -12, 52, 'intro');
   }
 
-  start() {
+  start({ seed } = {}) {
+    if(Number.isInteger(seed)){this._seed=seed>>>0||1;this._id=0;}
     this._reset('countdown');
     this._event('countdown', { value: 3, text: '3' });
   }
   restart() { this.start(); }
+  endRound() { if(this.state.mode==='paused'||this.state.mode==='countdown')this.state.mode='playing';this._finish(false,true); }
   // A selection never rewrites an active run; it is applied by start/restart.
   setLevel(id) { this.level=getLevel(id).id; }
   setPlayground(id) { this.playground=Object.hasOwn(PLAYGROUNDS,id)?id:'yard'; }
@@ -182,11 +181,11 @@ export class ArenaGame {
     else if(s.objective&&s.objective.value>=s.objective.target) this._finish(true);
   }
 
-  _finish(won=false) {
+  _finish(won=false,roundComplete=false) {
     const s=this.state,p=s.player;
     if(s.mode!=='playing'||s.baseScore!==null) return;
-    s.won=!!won;s.mode='over';p.boosting=false;
-    if(!won) {p.hp=0;this._event('explosion',{size:8,text:'WRECKED'});}
+    s.won=!!won;s.roundComplete=roundComplete;s.mode='over';p.boosting=false;
+    if(!won&&!roundComplete) {p.hp=0;this._event('explosion',{size:8,text:'WRECKED'});}
     s.baseScore=Math.floor(s.score);
     const [design,usability,creativity,content]=s.performance;
     const weightedPerformance=(.4*design+.3*usability+.2*creativity+.1*content)/100;

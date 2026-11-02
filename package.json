@@ -1,15 +1,23 @@
 {
   "name": "apex-arena",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.13.0" },
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "vite --config vite.pages.config.js",
     "build:pages": "vite build --config vite.pages.config.js",
     "preview": "vite preview --config vite.pages.config.js",
     "test": "node --test tests/*.test.js"
   },
-  "dependencies": { "three": "0.181.0" },
-  "devDependencies": { "vite": "8.0.13" }
+  "dependencies": {
+    "peerjs": "^1.5.5",
+    "qrcode": "^1.5.4",
+    "three": "0.181.0"
+  },
+  "devDependencies": {
+    "vite": "8.0.13"
+  }
 }

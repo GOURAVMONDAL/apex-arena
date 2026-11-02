@@ -1,3 +1,4 @@
+import { VEHICLE_ROSTER, vehicleIndex } from './roster.js';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -74,8 +75,8 @@ function liveryTexture(style) {
 
 /** Rounded racing karts and the reference's two expressive mascot silhouettes. */
 export function createVehicle({ color, skin='#ff9466',headwear='none',mood='happy',magic=false,car=0,livery='factory',rival=false,boss=false }={}) {
-  car=Number(car)||0;
-  const factory=['#7650d6','#ffc329','#ff743c'][car%3];
+  car=vehicleIndex(car);
+  const factory=VEHICLE_ROSTER[car].color;
   // Earlier versions saved lime as their default paint. Upgrade that default to the new race palette.
   color=!color||color==='#d3fa5b'?factory:color;
   const root=new THREE.Group(),body=new THREE.Group();root.add(body);root.name='reference-racing-kart';
@@ -135,6 +136,35 @@ export function createVehicle({ color, skin='#ff9466',headwear='none',mood='happ
     }
     for(const x of [-.18,-.06,.06,.18]){const groove=new THREE.Mesh(new THREE.TorusGeometry(.691,.008,4,40),carbon);groove.rotation.y=Math.PI/2;groove.position.x=x;wheel.add(groove);}
     wheelGroups.push({steering,wheel,front:z>0});
+  }
+  // Each additional chassis keeps its own silhouette even with custom paint.
+  if(car===3){
+    for(const side of [-1,1]){
+      tube(body,steel,[[side*1.05,.8,1],[side*1.05,3.45,.3],[side*1.05,3.45,-1.45],[side*1.05,.8,-1.8]],.085);
+      for(const {steering,wheel} of wheelGroups)if(Math.sign(steering.position.x)===side)wheel.scale.set(1.08,1.12,1.12);
+      box(body,paint,[.6,.28,3.7],[side*1.27,1.22,0]);
+    }
+    beam(body,steel,[-1.05,3.45,-1.45],[1.05,3.45,-1.45],.085);
+    box(body,black,[2.05,.17,.28],[0,3.48,.25]);
+    for(const x of [-.65,0,.65])sphere(body,light,[.17,.17,.12],[x,3.5,.42]);
+  }
+  if(car===4){
+    for(const side of [-1,1]){
+      box(body,paint,[.74,.25,3.8],[side*1.35,1.08,0]);
+      box(body,light,[.05,.07,2.7],[side*1.74,1.12,.2]);
+    }
+    box(body,ivory,[2.7,.12,.65],[0,1.35,-1.65]);
+    box(body,paint,[2.4,.18,.4],[0,.65,2.35]);
+  }
+  if(car===5){
+    for(const side of [-1,1]){
+      beam(body,carbon,[side*.85,.8,-1.7],[side*.85,2.05,-1.9],.08);
+      box(body,paint,[.12,.5,.8],[side*1.53,2.08,-1.9]);
+      box(body,light,[.05,.06,2.2],[side*1.37,.62,0]);
+    }
+    box(body,carbon,[3.1,.14,.8],[0,2.15,-1.9]);
+    box(body,paint,[.55,.2,1.3],[0,1.2,1.55]);
+    box(body,carbon,[3.05,.12,.55],[0,.45,2.2]);
   }
   const driver=new THREE.Group();driver.position.set(0,1.76,-.38);body.add(driver);driver.name=car===1?'star-racer':'helmet-racer';
   if(car===1){
@@ -201,7 +231,7 @@ export function createVehicle({ color, skin='#ff9466',headwear='none',mood='happ
   const shield=new THREE.Mesh(new THREE.IcosahedronGeometry(2.7,2),new THREE.MeshBasicMaterial({color:'#a9eaff',transparent:true,opacity:.14,wireframe:true}));shield.scale.set(1,.75,1.1);shield.position.y=1.2;root.add(shield);shield.visible=false;
   const underglow=new THREE.Mesh(new THREE.PlaneGeometry(5,6),new THREE.MeshBasicMaterial({map:radialTexture(color),transparent:true,opacity:.25,depthWrite:false}));underglow.rotation.x=-Math.PI/2;underglow.position.y=.04;root.add(underglow);
   batchStaticParts(body);batchStaticParts(driver);for(const {wheel} of wheelGroups)batchStaticParts(wheel);
-  root.userData={body,driver,wheelGroups,paint,shield,underglow,livery,impact:0,shock:0,shockAge:0,previousSpeed:0};
+  root.userData={vehicle:car,body,driver,wheelGroups,paint,shield,underglow,livery,impact:0,shock:0,shockAge:0,previousSpeed:0};
   return root;
 }
 
