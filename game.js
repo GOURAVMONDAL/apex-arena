@@ -470,6 +470,7 @@ export class ArenaGame {
         const offsetX=s.playground==='city'?(i%2?this._range(22,27):this._range(3,8)):this._range(2,28);
         const x = ix * side + offsetX, z = iz * side + this._range(2, 28);
         if (Math.hypot(x - p.x, z - p.z) < (initial ? 13 : 23)) continue;
+        if(s.playground==='road' && Math.abs(x)<12)continue;
         const kind = playground.propKinds[Math.floor(this._random() * playground.propKinds.length)];
         const size = kind === 'pillar' ? this._range(2, 3.5) : kind === 'cone' ? 1.1 : this._range(1.3, 2.2);
         s.obstacles.push({ id: ++this._id, cell, x, z, kind, size, angle: this._range(0, TAU), vx: 0, vz: 0, y: 0, vy: 0, hit: false });

@@ -70,3 +70,16 @@ test('ice retains more lateral momentum than the city surface',()=>{
   }
   assert.ok(lateral('ice')>lateral('city'));
 });
+
+// Mode environments must remain distinct and leave the highway driveable.
+test('open road and offroad stream different terrain and keep the highway clear',()=>{
+  for(const id of ['road','offroad']){
+    const game=new ArenaGame({seed:7});game.setPlayground(id);game.start();
+    assert.equal(game.state.playground,id);
+    assert.ok(game.state.obstacles.length>0);
+    if(id==='road')assert.ok(game.state.obstacles.every(o=>Math.abs(o.x)>=12));
+    else assert.ok(game.state.obstacles.some(o=>o.kind==='rock'));
+    game.restart();assert.equal(game.state.playground,id);
+  }
+  assert.ok(PLAYGROUNDS.road.grip>PLAYGROUNDS.offroad.grip);
+});

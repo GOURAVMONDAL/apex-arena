@@ -12,7 +12,7 @@ const game = new ArenaGame();
 const audio = new ArenaAudio();
 let world;
 const ui = createUI({
-  onPlay: () => { clearKeys(); audio.setEnabled(ui.getSettings().sound); game.start(); },
+  onPlay: () => { if(loader.isOpen())return; clearKeys(); audio.setEnabled(ui.getSettings().sound); game.start(); },
   onPause: () => { clearKeys(); game.pause(); },
   onResume: () => { clearKeys(); audio.setEnabled(ui.getSettings().sound); game.resume(); },
   onGarage: () => { clearKeys(); game.garage(); },
@@ -25,6 +25,7 @@ const ui = createUI({
   onAction: action => { if(action==='camera')toggleCamera(); },
 });
 game.setVehicle(ui.getProfile().car);
+document.getElementById('app').inert = true;
 game.setLevel(ui.getSettings().level);
 game.setPlayground(ui.getSettings().playground);
 loader.setProgress(60, 'BUILDING THE PLAYGROUND');
@@ -38,7 +39,7 @@ function panelOpen() { return !!document.getElementById('game-panel')?.open; }
 function editing() { return /INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName); }
 function toggleCamera() { const settings = ui.getSettings(); ui.setSettings({...settings,camera:settings.camera==='chase'?'overhead':'chase'});ui.toast({type:'camera',text:settings.camera==='chase'?'OVERHEAD CAMERA':'CHASE CAMERA'}); }
 window.addEventListener('keydown', e => {
-  if (editing()||panelOpen()) return;
+  if (loader.isOpen()||editing()||panelOpen()) return;
   const code=e.code;
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(code))e.preventDefault();
   keys.add(code);
@@ -58,7 +59,7 @@ document.addEventListener('visibilitychange', () => { if(document.hidden){clearK
 
 let gamepadPause=false;
 function readInput() {
-  if(panelOpen()||editing())return {};
+  if(loader.isOpen()||panelOpen()||editing())return {};
   const touch=ui.getInput();
   const input={
     throttle:(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0),
@@ -94,4 +95,4 @@ function frame(now) {
   if(frameTime+0.000001>=interval){world?.update(game.state,Math.min(renderElapsed,.1),input);frameTime=Math.max(0,frameTime-interval)%interval;renderElapsed=0;}
 }
 requestAnimationFrame(frame);
-if (world) requestAnimationFrame(() => { loader.setProgress(95, 'CHECKING THE ENGINE'); requestAnimationFrame(() => loader.finish()); });
+if (world) requestAnimationFrame(() => { loader.setProgress(95, 'CHECKING THE ENGINE'); requestAnimationFrame(() => loader.finish().then(() => { document.getElementById('app').inert = false; clearKeys(); })); });

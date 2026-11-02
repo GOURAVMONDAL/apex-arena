@@ -35,19 +35,19 @@ export class ArenaWorld {
   constructor(canvas, settings, profile) {
     this.settings = settings; this.profile = profile; this.time = 0; this.mode = 'garage'; this.shake = 0;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
-    this.renderer.setClearColor('#171d19'); this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.08;
+    this.renderer.setClearColor('#080d17'); this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.16;
     this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.scene = new THREE.Scene(); this.scene.background = new THREE.Color('#171d19'); this.scene.fog = new THREE.FogExp2('#171d19', .011);
+    this.scene = new THREE.Scene(); this.scene.background = new THREE.Color('#080d17'); this.scene.fog = new THREE.FogExp2('#080d17', .011);
     this.camera = new THREE.PerspectiveCamera(36, 1, .1, 330); this.target = new THREE.Vector3(); this.cameraPosition = new THREE.Vector3(12, 8, 14);
-    this.scene.add(new THREE.HemisphereLight('#e6f0e1', '#172218', 1.05));
+    this.scene.add(new THREE.HemisphereLight('#c6d9ff', '#131322', .8));
     this.sun = new THREE.DirectionalLight('#fff5dc', 3.1); this.sun.position.set(12, 22, 9); this.sun.castShadow = true;
     Object.assign(this.sun.shadow.camera, { left: -42, right: 42, top: 42, bottom: -42, near: .1, far: 100 });
     this.sun.shadow.mapSize.set(2048, 2048); this.sun.shadow.bias = -.0004; this.sun.shadow.normalBias = .045;
     this.scene.add(this.sun, this.sun.target);
-    this.rim = new THREE.DirectionalLight('#d6ff8f', 3); this.rim.position.set(-12, 6, -8); this.scene.add(this.rim);
+    this.rim = new THREE.DirectionalLight('#b1a6ff', 3.2); this.rim.position.set(-12, 6, -8); this.scene.add(this.rim);
     const pmrem = new THREE.PMREMGenerator(this.renderer); const room = new RoomEnvironment();
-    this.env = pmrem.fromScene(room, .04); this.scene.environment = this.env.texture; this.scene.environmentIntensity = .38; room.dispose(); pmrem.dispose();
+    this.env = pmrem.fromScene(room, .04); this.scene.environment = this.env.texture; this.scene.environmentIntensity = .65; room.dispose(); pmrem.dispose();
     this.setupGround(); this.setupGarage(); this.setupParticles();
     this.scenery = new PlaygroundScenery(this.scene);
     this.player = createVehicle(profile); this.scene.add(this.player);
@@ -101,26 +101,37 @@ export class ArenaWorld {
 
   setupGarage() {
     this.garageGroup = new THREE.Group(); this.scene.add(this.garageGroup);
-    const dark = material('#121a14', .2, .72), trim = material('#7c8a71', .65, .45), accent = material('#d3fa5b', .2, .5);
-    const dais = mesh(this.garageGroup, new THREE.CylinderGeometry(5.7, 5.95, .18, 96), dark, [0, -.03, 0]); dais.receiveShadow = true;
-    const ring = new THREE.Mesh(new THREE.RingGeometry(5.38, 5.42, 100), new THREE.MeshBasicMaterial({ color: '#d3fa5b', transparent: true, opacity: .62, side: THREE.DoubleSide }));
-    ring.rotation.x = -Math.PI / 2; ring.position.y = .067; this.garageGroup.add(ring);
-    const ring2 = ring.clone(); ring2.scale.setScalar(.92); ring2.material = new THREE.MeshBasicMaterial({ color: '#9ca794', transparent: true, opacity: .25, side: THREE.DoubleSide }); this.garageGroup.add(ring2);
-    for (let i = 0; i < 64; i++) {
-      const a = i / 64 * Math.PI * 2; const tick = mesh(this.garageGroup, unitBox, i % 4 ? trim : accent, [Math.sin(a) * 5.58, .071, Math.cos(a) * 5.58], [.025, .012, i % 4 ? .09 : .24]); tick.rotation.y = a;
+    const asphalt = material('#101521', .22, .56);
+    const gold = material('#ffbf35', .45, .25, {emissive:'#ff9e24',emissiveIntensity:.35});
+    const violet = material('#8b5dff', .45, .25, {emissive:'#6940e8',emissiveIntensity:.65});
+    // A low, open starting grid keeps the rounded kart silhouette unobstructed.
+    mesh(this.garageGroup, new THREE.BoxGeometry(30,.12,26), asphalt, [0,-.08,0]);
+    const checker = document.createElement('canvas'); checker.width=512;checker.height=128;
+    const ctx=checker.getContext('2d');
+    for(let y=0;y<4;y++)for(let x=0;x<16;x++){
+      ctx.fillStyle=(x+y)%2?'#18202d':'#d7d2c6';ctx.fillRect(x*32,y*32,32,32);
     }
-    // Warehouse pylons and striped barriers frame the specimen without hiding it.
-    for (const [x,z,s] of [[-9,-10,2], [8,-13,3.4], [14,-4,2.2], [-12,8,1.5], [4,-18,1.2]]) {
-      const prop = mesh(this.garageGroup, unitBox, dark, [x,s/2,z], [s*.8,s,s*.8]); prop.rotation.y = .15 * x;
-      mesh(prop, unitBox, accent, [0,.15,.508], [.8,.13,.02]);
-      const plate = new THREE.Mesh(new THREE.PlaneGeometry(s*.65,s*.45),new THREE.MeshStandardMaterial({map:makeLabel('01')})); plate.position.set(x,s*.61,z+s*.42); this.garageGroup.add(plate);
+    // Fine road wear is baked once rather than animated as geometry.
+    let seed=19;
+    for(let i=0;i<1200;i++){
+      seed=(seed*16807)%2147483647;const x=seed%512;
+      seed=(seed*16807)%2147483647;const y=seed%128;
+      ctx.fillStyle=i%3?'#070b1416':'#e7dacc14';ctx.fillRect(x,y,1+(i%5),1);
     }
-    for (const side of [-1,1]) {
-      const rail = mesh(this.garageGroup, unitBox, dark, [side*8,.3,-3],[.6,.6,7]);
-      mesh(rail,unitBox,accent,[0,.51,0],[.75,.02,.95]);
+    const map=new THREE.CanvasTexture(checker);map.colorSpace=THREE.SRGBColorSpace;
+    const stripe=mesh(this.garageGroup,new THREE.PlaneGeometry(18,4.5),material('#ffffff',.1,.66,{map}),[0,.015,3.9]);
+    stripe.rotation.x=-Math.PI/2;stripe.castShadow=false;
+    for(const side of[-1,1]){
+      mesh(this.garageGroup,unitBox,side<0?violet:gold,[side*7,.018,-1],[.035,.018,16]);
+      mesh(this.garageGroup,unitBox,asphalt,[side*8,.23,-5],[.6,.45,8]);
+      mesh(this.garageGroup,unitBox,side<0?violet:gold,[side*8,.47,-5],[.62,.025,8]);
     }
-    const floorText = new THREE.Mesh(new THREE.PlaneGeometry(5.5,2.75), new THREE.MeshBasicMaterial({map:makeLabel('APEX', '#7c8a71', '#242b25'),transparent:true,opacity:.55})); floorText.rotation.x=-Math.PI/2;floorText.position.set(0,.075,3.3);this.garageGroup.add(floorText);
-    const shadow = new THREE.Mesh(new THREE.PlaneGeometry(6,8),new THREE.MeshBasicMaterial({map:radialTexture('#000000'),transparent:true,opacity:.68,depthWrite:false}));shadow.rotation.x=-Math.PI/2;shadow.position.y=.09;this.garageGroup.add(shadow);
+    this.garagePurple = new THREE.PointLight('#9868ff',30,16,2);this.garagePurple.position.set(-4,2.7,-2);
+    this.garageGold = new THREE.PointLight('#ffc35c',24,16,2);this.garageGold.position.set(4,3,2);
+    this.garageGroup.add(this.garagePurple,this.garageGold);
+    const shadow=new THREE.Mesh(new THREE.PlaneGeometry(7,8),new THREE.MeshBasicMaterial({map:radialTexture('#000000'),transparent:true,opacity:.55,depthWrite:false}));
+    shadow.rotation.x=-Math.PI/2;shadow.position.y=.025;this.garageGroup.add(shadow);
+    this.garageSmokeTimer=0;
   }
 
   setupParticles() {
@@ -130,7 +141,7 @@ export class ArenaWorld {
     this.smokes = [];
     this.shockwaves = [];
     this.shockwaveGeometry = new THREE.RingGeometry(.88, 1, 48);
-    this.smokeTexture = radialTexture('#d5dccb');
+    this.smokeTexture = this.makeSmokeTexture();
     this.trails = []; this.trailCursor = 0;
     this.trailMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(.25,.7),new THREE.MeshBasicMaterial({color:'#070b08',transparent:true,opacity:.35,depthWrite:false}),700);
     this.trailMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.trailMesh.frustumCulled=false;this.trailMesh.count=0;this.scene.add(this.trailMesh);
@@ -142,7 +153,7 @@ export class ArenaWorld {
     this.renderer.setPixelRatio(ratio);this.renderer.shadowMap.enabled=settings.quality!=='low';
     const shadowSize=settings.quality==='high'?2048:1024;
     if(this.sun.shadow.mapSize.x!==shadowSize){this.sun.shadow.map?.dispose();this.sun.shadow.map=null;this.sun.shadow.mapSize.set(shadowSize,shadowSize);}
-    if(settings.reducedFX){this.shake=0;this.clearShockwaves();}
+    if(settings.reducedFX){this.shake=0;this.clearShockwaves();this.clearSmoke();}
     this.resize();
   }
   customize(profile) {
@@ -175,34 +186,20 @@ export class ArenaWorld {
   }
 
   makeRival(car) {
-    const g=new THREE.Group();const paint=material(car.boss?'#ff7766':'#c2c9bf',.3,.4), dark=this.propMaterials.dark,black=this.propMaterials.black;
-    mesh(g,unitBox,dark,[0,.75,0],[2.5,.5,4]);mesh(g,unitBox,paint,[0,1.1,.2],[2.5,.48,3.5]);mesh(g,unitBox,black,[0,1.42,-.3],[1.6,.34,1.6]);
-    mesh(g,unitBox,dark,[0,1.9,-1.8],[2.85,.13,.55]);
-    for(const side of [-1,1]){
-      for(const z of [-1.4,1.4]){const tire=mesh(g,new THREE.CylinderGeometry(.65,.65,.6,12),black,[side*1.5,.65,z]);tire.rotation.z=Math.PI/2;const hub=mesh(g,new THREE.CylinderGeometry(.3,.3,.64,8),paint,[side*1.51,.65,z]);hub.rotation.z=Math.PI/2;}
-      mesh(g,unitBox,this.pickupMaterials.rocket,[side*.9,1.3,2],[.5,.16,.07]);
-      const bar=mesh(g,unitBox,black,[side*.9,1.9,-.4],[.07,1.1,1.65]);bar.rotation.x=.2;
-    }
-    const driver=new THREE.Group();driver.position.set(0,2,-.2);g.add(driver);
-    mesh(driver,sphereGeo,paint,[0,0,0],[.48,.55,.45]);
-    for(const side of [-1,1])mesh(driver,sphereGeo,black,[side*.17,.08,.41],[.08,.09,.04]);
+    const g=createVehicle({car:car.id%3,color:car.boss?'#ef523e':undefined,rival:true,boss:car.boss,livery:'factory'});
     let bossAura;
     if(car.boss){
-      g.scale.setScalar(1.38);mesh(driver,new THREE.ConeGeometry(.25,.6,5),this.pickupMaterials.gold,[0,.8,0]);
-      for(const side of [-1,1]){
-        mesh(g,unitBox,paint,[side*1.28,1.4,.65],[.23,.76,1.55]);
-        mesh(g,new THREE.ConeGeometry(.17,.7,5),this.propMaterials.steel,[side*.88,1.55,2.1]);
-      }
       bossAura=new THREE.Mesh(new THREE.RingGeometry(2.6,2.68,48),new THREE.MeshBasicMaterial({color:'#ff785c',transparent:true,opacity:.5,side:THREE.DoubleSide,depthWrite:false}));
       bossAura.rotation.x=-Math.PI/2;bossAura.position.y=.035;g.add(bossAura);
     }
-    const health=new THREE.Group();health.position.set(0,car.boss?3.55:3.05,0);g.add(health);
+    const health=new THREE.Group();health.position.set(0,4.2,0);g.add(health);
     const healthBack=new THREE.Mesh(new THREE.PlaneGeometry(2.55,.2),new THREE.MeshBasicMaterial({color:'#101714',transparent:true,opacity:.9,depthWrite:false}));health.add(healthBack);
-    const healthFill=new THREE.Mesh(new THREE.PlaneGeometry(2.4,.105),new THREE.MeshBasicMaterial({color:car.boss?'#ff785c':'#d3fa5b',depthWrite:false}));healthFill.position.z=.01;health.add(healthFill);
+    const healthFill=new THREE.Mesh(new THREE.PlaneGeometry(2.4,.105),new THREE.MeshBasicMaterial({color:car.boss?'#ff785c':'#ffd34d',depthWrite:false}));healthFill.position.z=.01;health.add(healthFill);
     health.visible=car.boss;
-    g.userData={driver,health,healthFill,bossAura};
+    Object.assign(g.userData,{health,healthFill,bossAura,isKart:true});
     return g;
   }
+
   makePickup(o) {
     const g=new THREE.Group();const m=this.pickupMaterials[o.kind]||this.pickupMaterials.like;
     const ring=mesh(g,new THREE.TorusGeometry(.72,.025,6,24),m,[0,-.5,0]);ring.rotation.x=Math.PI/2;
@@ -225,7 +222,7 @@ export class ArenaWorld {
     const seen=new Set();for(const o of array){seen.add(o.id);let model=map.get(o.id);if(!model){model=factory(o);this.scene.add(model);map.set(o.id,model);}update(model,o);}
     for(const[id,model]of map){if(!seen.has(id)){this.scene.remove(model);this.disposeModel(model);map.delete(id);}}
   }
-  disposeModel(model){const geometries=new Set(),materials=new Set();model.traverse(o=>{if(o.isMesh){if(o.geometry!==unitBox&&o.geometry!==sphereGeo)geometries.add(o.geometry);if(!this.sharedMaterials.has(o.material))materials.add(o.material);}});for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}
+  disposeModel(model){if(model.userData.isKart){disposeVehicle(model);return;}const geometries=new Set(),materials=new Set();model.traverse(o=>{if(o.isMesh){if(o.geometry!==unitBox&&o.geometry!==sphereGeo)geometries.add(o.geometry);if(!this.sharedMaterials.has(o.material))materials.add(o.material);}});for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}
   event(event) {
     if(event.type==='explosion'||event.type==='hit'||event.type==='damage'||event.type==='smash'){
       if(event.type==='damage')this.player.userData.impact=1;
@@ -252,9 +249,28 @@ export class ArenaWorld {
   repaint(index,x=0,z=0){
     const ix=((index%15)+15)%15;this.gridUniforms.uOld.value.copy(this.gridUniforms.uColor.value);this.gridUniforms.uColor.value.set(PALETTES[ix][1]);this.gridUniforms.uOrigin.value.set(x,z);this.gridUniforms.uRadius.value=0;this.paletteProgress=0;this.currentPalette=ix;
   }
-  smoke(x,y,z,size=.7){
-    if(this.smokes.length>55||this.settings.reducedFX)return;
-    const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:this.smokeTexture,transparent:true,opacity:.26,depthWrite:false,color:'#abb9a9'}));sprite.position.set(x,y,z);sprite.scale.setScalar(size);this.scene.add(sprite);this.smokes.push({sprite,life:1,size});
+  makeSmokeTexture(){
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
+    const ctx=canvas.getContext('2d');
+    for(let i=0;i<24;i++){
+      const angle=i*2.39996,radius=9+Math.sqrt(i/24)*49;
+      const x=128+Math.cos(angle)*radius,y=128+Math.sin(angle)*radius;
+      const gradient=ctx.createRadialGradient(x,y,0,x,y,35+(i%5)*5);
+      gradient.addColorStop(0,'rgba(223,230,246,.11)');gradient.addColorStop(.45,'rgba(201,212,230,.055)');gradient.addColorStop(1,'rgba(201,212,230,0)');
+      ctx.fillStyle=gradient;ctx.fillRect(0,0,256,256);
+    }
+    const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;return texture;
+  }
+  clearSmoke(){
+    for(const puff of this.smokes){this.scene.remove(puff.sprite);puff.sprite.material.dispose();}
+    this.smokes.length=0;
+  }
+  smoke(x,y,z,size=.7,showroom=false){
+    const max=this.settings.quality==='low'?24:56;
+    if(this.smokes.length>=max||this.settings.reducedFX)return;
+    const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:this.smokeTexture,transparent:true,opacity:0,depthWrite:false,color:showroom?'#bbc7e3':'#dbe2f0',rotation:Math.random()*Math.PI*2}));
+    sprite.position.set(x,y,z);sprite.scale.setScalar(size);this.scene.add(sprite);
+    this.smokes.push({sprite,life:1,size,maxLife:showroom?4:1.2,drift:(Math.random()-.5)*.7,showroom});
   }
   update(state,dt,input = {}) {
     this.time+=dt;const t=this.time,p=state.player;const garage=state.mode==='garage';const mobile=innerWidth<760;
@@ -262,43 +278,44 @@ export class ArenaWorld {
     const venue = garage ? this.settings.playground : state.playground;
     this.scenery.set(venue);
     this.scenery.update(p.x,p.z,garage,t,reduced);
+    this.scenery.group.visible=!garage;
     const view=resolveStageView(this.settings,state.stage,garage);
     this.garageGroup.visible=garage;
     if(this.mode!==state.mode){
       if(state.mode==='countdown') {this.cameraPosition.set(p.x+11,12,p.z-14);this.trailMesh.count=0;this.trailCursor=0;this.clearShockwaves();}
       if(garage){this.clearShockwaves();this.particles.length=0;this.shake=0;this.trailMesh.count=0;}
+      this.clearSmoke();
       this.mode=state.mode;
     }
     if(garage){
-      const a=-.55+(reduced?0:Math.sin(t*.12)*.07);
+      const a=.35+(reduced?0:Math.sin(t*.12)*.07);
       animateVehicle(this.player,{x:0,z:0,y:.08,angle:a,speed:0,shield:0},t,dt,0,reduced);
-      const cameraGoal=mobile?new THREE.Vector3(16,11,20):new THREE.Vector3(11.1+(reduced?0:this.pointer.x*.65),7.8+(reduced?0:this.pointer.y*.35),13.5);
+      const cameraGoal=mobile?new THREE.Vector3(16,11,20):new THREE.Vector3(10.6+(reduced?0:this.pointer.x*.4),5.7+(reduced?0:this.pointer.y*.22),13.1);
       this.cameraPosition.lerp(cameraGoal,1-Math.exp(-dt*3));
-      this.target.lerp(mobile?new THREE.Vector3(.3,4,.3):new THREE.Vector3(-2.65,.65,1.75),1-Math.exp(-dt*3));
-      this.camera.fov=mobile?45:35;this.gridUniforms.uOpacity.value=.14;
+      this.target.lerp(mobile?new THREE.Vector3(.3,4,.3):new THREE.Vector3(-2.4,1.0,1.75),1-Math.exp(-dt*3));
+      this.camera.fov=mobile?45:35;this.gridUniforms.uOpacity.value=.015;
+      if(!reduced){this.garageSmokeTimer+=dt;if(this.garageSmokeTimer>.25){this.garageSmokeTimer=0;for(const side of[-1,1])this.smoke(side*(2.8+Math.random()*2),.12,-1.5-Math.random()*4,2.4,true);}}
       this.sun.position.set(12,22,9);this.sun.target.position.set(0,0,0);
       this.floor.position.set(0,0,0);this.grid.position.set(0,.018,0);
       for(const map of[this.objectModels,this.rivalModels,this.pickupModels,this.projectileModels])for(const model of map.values())model.visible=false;
     }else{
-      animateVehicle(this.player,p,t,dt,input.steer||0,reduced);
+      animateVehicle(this.player,venue==='offroad'&&!reduced?{...p,y:p.y+Math.abs(Math.sin(p.x*1.8)+Math.sin(p.z*1.4))*.06*Math.min(1,p.speed/12)}:p,t,dt,input.steer||0,reduced);
       const chase=view.camera!=='overhead';
       const fx=Math.sin(p.angle),fz=Math.cos(p.angle);
       const desired=chase?new THREE.Vector3(p.x-fx*16,p.y+11.5,p.z-fz*16):new THREE.Vector3(p.x+9,30,p.z-18);
       this.cameraPosition.lerp(desired,1-Math.exp(-dt*(chase?3.3:5)));
       const look=chase?new THREE.Vector3(p.x+fx*6,1.1,p.z+fz*6):new THREE.Vector3(p.x,0,p.z+4);
-      this.target.lerp(look,1-Math.exp(-dt*6));this.camera.fov=THREE.MathUtils.damp(this.camera.fov,mobile?58:52+(p.boosting&&!reduced?5:0),4,dt);this.gridUniforms.uOpacity.value=.33;
+      this.target.lerp(look,1-Math.exp(-dt*6));this.camera.fov=THREE.MathUtils.damp(this.camera.fov,mobile?58:52+(p.boosting&&!reduced?5:0),4,dt);this.gridUniforms.uOpacity.value=['road','offroad'].includes(venue)?0:.33;
       this.sun.position.set(p.x+12,27,p.z+12);this.sun.target.position.set(p.x,0,p.z);
       this.floor.position.set(p.x,0,p.z);this.grid.position.set(p.x,.018,p.z);
       this.syncModels(state.obstacles,this.objectModels,o=>this.makeProp(o),(m,o)=>{m.visible=true;m.position.set(o.x,o.y||0,o.z);m.rotation.set((o.y||0)*.5,o.angle||0,(o.y||0)*.3);const size=o.size||1;m.scale.setScalar(size);});
       this.syncModels(state.rivals,this.rivalModels,o=>this.makeRival(o),(m,o)=>{
-        m.visible=true;m.position.set(o.x,o.y||0,o.z);m.rotation.y=o.angle;
-        const {driver,health,healthFill,bossAura}=m.userData;
+        m.visible=true;animateVehicle(m,o,t,dt,0,reduced);
+        const {health,healthFill,bossAura}=m.userData;
         const hp=THREE.MathUtils.clamp(o.hp/(o.maxHp||(o.boss?210:65)),0,1);
         health.visible=o.boss||hp<.99;
         health.quaternion.copy(m.quaternion).invert().multiply(this.camera.quaternion);
         healthFill.scale.x=hp;healthFill.position.x=-(1-hp)*1.2;
-        driver.rotation.x=reduced?0:-Math.min(.12,(o.speed||0)*.005)+Math.sin(t*6+o.id)*.04;
-        driver.rotation.z=reduced?0:Math.sin(t*5+o.id)*.055;
         if(bossAura)bossAura.material.opacity=reduced?.35:.4+Math.sin(t*2)*.08;
       });
       this.syncModels(state.pickups,this.pickupModels,o=>this.makePickup(o),(m,o)=>{m.visible=true;m.position.set(o.x,1.25+(reduced?0:Math.sin(t*3+o.id)*.18),o.z);m.rotation.y=(reduced?0:t*1.4)+o.id;});
@@ -318,11 +335,12 @@ export class ArenaWorld {
     const environment=PLAYGROUNDS[venue]||PLAYGROUNDS.yard;
     const themeColors={electric:'#b99aff',sunset:'#ffaf76',arctic:'#a9edff'};
     const accent=themeColors[this.settings.theme]||environment.accent;
-    const background=new THREE.Color(environment.sky);if(night)background.multiplyScalar(.45);
-    this.scene.background.lerp(background,dt*.8);this.scene.fog.color.copy(this.scene.background);this.scene.fog.density=environment.fog;
-    this.floorMat.color.lerp(new THREE.Color(environment.ground).multiplyScalar(night?.45:1),dt*2);
+    const background=new THREE.Color(garage?'#080d17':environment.sky);if(night&&!garage)background.multiplyScalar(.45);
+    this.scene.background.lerp(background,dt*.8);this.scene.fog.color.copy(this.scene.background);this.scene.fog.density=garage?.018:environment.fog;
+    this.floorMat.color.lerp(new THREE.Color(garage?'#101622':environment.ground).multiplyScalar(night && !garage ? .45 : 1),dt*2);
     this.gridUniforms.uColor.value.set(accent);this.propMaterials.paint.color.lerp(new THREE.Color(accent),dt*3);
-    this.sun.intensity=THREE.MathUtils.damp(this.sun.intensity,night?.8:3.1,3,dt);
+    this.sun.color.lerp(new THREE.Color(garage?'#ffdaaa':'#fff5dc'),dt*3);
+    this.sun.intensity=THREE.MathUtils.damp(this.sun.intensity,garage?3.5:night?.8:3.1,3,dt);
     if(this.currentPalette!==state.paletteIndex&&!garage)this.repaint(state.paletteIndex,p.x,p.z);
     if(this.paletteProgress<1){this.paletteProgress+=dt/1.5;this.gridUniforms.uRadius.value=this.paletteProgress*155;this.propMaterials.paint.color.lerp(new THREE.Color(PALETTES[this.currentPalette][1]),dt*3);}
     if(garage&&this.currentPalette!==0)this.repaint(0,0,0);
@@ -337,6 +355,6 @@ export class ArenaWorld {
     this.particles=this.particles.filter(p=>(p.life-=dt)>0).slice(-this.particleMax);
     this.particles.forEach((p,i)=>{p.vy-=15*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;if(p.y<.1){p.y=.1;p.vy*=-.35;}dummy.position.set(p.x,p.y,p.z);dummy.rotation.set(p.life*3,p.life*7,0);dummy.scale.setScalar(Math.max(.1,p.life/p.max));dummy.updateMatrix();this.particleMesh.setMatrixAt(i,dummy.matrix);this.particleMesh.setColorAt(i,new THREE.Color(p.color));});
     this.particleMesh.count=this.particles.length;this.particleMesh.instanceMatrix.needsUpdate=true;if(this.particleMesh.instanceColor)this.particleMesh.instanceColor.needsUpdate=true;
-    this.smokes=this.smokes.filter(s=>{s.life-=dt*1.5;if(s.life<=0){this.scene.remove(s.sprite);s.sprite.material.dispose();return false;}s.sprite.position.y+=dt*.8;s.sprite.scale.setScalar(s.size+(1-s.life)*2);s.sprite.material.opacity=s.life*.22;return true;});
+    this.smokes=this.smokes.filter(s=>{s.life-=dt/s.maxLife;if(s.life<=0){this.scene.remove(s.sprite);s.sprite.material.dispose();return false;}const age=1-s.life;s.sprite.position.y+=dt*(s.showroom?.14:.6);s.sprite.position.x+=dt*s.drift;s.sprite.position.z+=dt*.18;s.sprite.scale.set(s.size+age*3,s.size*(s.showroom?.55:1)+age*2,1);s.sprite.material.rotation+=dt*.08;s.sprite.material.opacity=Math.sin(age*Math.PI)*(s.showroom?.33:.5);return true;});
   }
 }
